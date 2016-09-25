@@ -12,7 +12,7 @@
 #include <assert.h>
 
 int size;
-
+#define BLOCK_SIZE 32
 typedef struct
 {
 	float ** element;
@@ -137,7 +137,29 @@ __global__ void mm_kernel(matrix a, matrix b, matrix result, int size)
 	for(k = 0; k < size; k++)
 		result.element[i][j] += a.element[i][k] * b.element[k][j];
 }
+__global__ void mm_improved(matrix a, matrix b, matrix result, int size){
+        __shared__ float matA[BLOCK_SIZE][BLOCK_SIZE];
+        __shared__ float matB[BLOCK_SIZE][BLOCK_SIZE];
+        const int tidr = threadIdx.x;
+        const int tidc = threadIdx.y;
+        const int bidr = blockIdx.x * BLOCK_SIZE;
+        const int bidc = blockIdx.y * BLOCK_SIZE;
+        float tmp = 0;
 
+        for (int i = 0; i < size; i += BLOCK_SIZE){
+            matA[tidr][tidc] = a.element[tidr+bidr][tidc+i];
+            matB[tidr][tidc] = b.element[tidr+i][tidc + bidc];
+            __syncthreads();
+
+            for (int j = 0; j < BLOCK_SIZE; j++){
+                tmp += matA[tidr][j] * matB[j][tidc];
+            }
+            __syncthreads();
+        }
+        result.element[tidr+bidr][tidc+bidc] = tmp;
+
+
+}
 void print_matrix(matrix m)
 {
 	int i, j;
@@ -155,7 +177,7 @@ void print_matrix(matrix m)
 
 void work()
 {
-	matrix a, b, result1, result2;
+	matrix a, b, result1, result2, result3;
 	long long before, after;
 	int correct, i, j, dim;
 	cudaError_t rc;
@@ -165,7 +187,7 @@ void work()
 	allocate_matrix(&b);
 	allocate_matrix(&result1);
 	allocate_matrix(&result2);	
-
+        allocate_matrix(&result3);
 	// Initialize matrix elements
 	init_matrix(a);
 	init_matrix(b);
@@ -181,11 +203,15 @@ void work()
 	dim = (size % 32 == 0) ? size / 32 : size / 32 + 1; 
 	dim3 grid(dim, dim);	// a grid of CUDA thread blocks
 	before = wall_clock_time();
-	mm_kernel<<<grid, block>>>(a, b, result2, size);
+	mm_improved<<<grid, block>>>(a, b, result2, size);
 	cudaDeviceSynchronize();
 	after = wall_clock_time();
 	fprintf(stderr, "Matrix multiplication on GPU took %1.2f seconds\n", ((float)(after - before))/1000000000);
-
+        before = wall_clock_time();
+        mm_kernel<<<grid,block>>>(a,b,result3,size);
+        cudaDeviceSynchronize();
+        after = wall_clock_time();
+        fprintf(stderr, "Matrix multiplication on GPU took %1.2f seconds\n", ((float)(after - before))/1000000000);
 	// was there any error?
         rc = cudaGetLastError();
         if (rc != cudaSuccess)
@@ -195,7 +221,7 @@ void work()
 	correct = 1;
 	for (i = 0; correct && i < size; i++)
 		for (j = 0; j < size; j++)
-			if (result1.element[i][j] != result2.element[i][j]) {
+			if ((result1.element[i][j] != result3.element[i][j])||(result1.element[i][j] != result2.element[i][j])) {
 				correct = 0;
 				break;
 			}
