@@ -212,15 +212,10 @@ void work()
 	cudaDeviceSynchronize();
 	after = wall_clock_time();
 	fprintf(stderr, "Matrix multiplication on GPU took %1.2f seconds\n", ((float)(after - before))/1000000000);
-        before = wall_clock_time();
-        mm_kernel<<<grid,block>>>(a,b,result3,size);
-        cudaDeviceSynchronize();
-        after = wall_clock_time();
-        fprintf(stderr, "Matrix multiplication on GPU took %1.2f seconds\n", ((float)(after - before))/1000000000);
-	// was there any error?
-        rc = cudaGetLastError();
-        if (rc != cudaSuccess)
-                printf("Last CUDA error %s\n", cudaGetErrorString(rc));
+      // was there any error?
+      rc = cudaGetLastError();
+      if (rc != cudaSuccess)
+      		printf("Last CUDA error %s\n", cudaGetErrorString(rc));
 
 	// Compare the results
 	correct = 1;
