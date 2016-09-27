@@ -182,7 +182,7 @@ void print_matrix(matrix m)
 
 void work()
 {
-	matrix a, b, result1, result2, result3;
+	matrix a, b, result1, result2;
 	long long before, after;
 	int correct, i, j, dim;
 	cudaError_t rc;
@@ -192,7 +192,6 @@ void work()
 	allocate_matrix(&b);
 	allocate_matrix(&result1);
 	allocate_matrix(&result2);	
-        allocate_matrix(&result3);
 	// Initialize matrix elements
 	init_matrix(a);
 	init_matrix(b);
@@ -221,7 +220,7 @@ void work()
 	correct = 1;
 	for (i = 0; correct && i < size; i++)
 		for (j = 0; j < size; j++)
-			if ((result1.element[i][j] != result3.element[i][j])||(result1.element[i][j] != result2.element[i][j])) {
+			if (result1.element[i][j] != result2.element[i][j]) {
 				correct = 0;
 				break;
 			}
