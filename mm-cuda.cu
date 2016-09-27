@@ -138,6 +138,9 @@ __global__ void mm_kernel(matrix a, matrix b, matrix result, int size)
 		result.element[i][j] += a.element[i][k] * b.element[k][j];
 }
 __global__ void mm_improved(matrix a, matrix b, matrix result, int size){
+	  /*Use shared memory instead of load from global memory each time.
+	  The shared memeory would be shared by all the threads inside one block
+	  */
         __shared__ float matA[BLOCK_SIZE][BLOCK_SIZE];
         __shared__ float matB[BLOCK_SIZE][BLOCK_SIZE];
         const int tidr = threadIdx.x;
@@ -149,11 +152,13 @@ __global__ void mm_improved(matrix a, matrix b, matrix result, int size){
         for (int i = 0; i < size; i += BLOCK_SIZE){
             matA[tidr][tidc] = a.element[tidr+bidr][tidc+i];
             matB[tidr][tidc] = b.element[tidr+i][tidc + bidc];
-            __syncthreads();
+            //Each time, all the threads would form two shared matrix, and use the shared matrix to calculate paritial answers.
+		__syncthreads();
 
             for (int j = 0; j < BLOCK_SIZE; j++){
                 tmp += matA[tidr][j] * matB[j][tidc];
             }
+		//After all threads finish the calculation of these two sub matrix, they would move on to the next step.
             __syncthreads();
         }
         result.element[tidr+bidr][tidc+bidc] = tmp;
